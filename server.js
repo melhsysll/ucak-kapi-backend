@@ -161,10 +161,14 @@ const generateSimulatedFlight = (flightCode) => {
     arrIata = 'IST';
   }
 
-  // Eger kapı yukarıdaki spesifik kurallarla atanmadıysa, test amaçlı rastgele ata
+  // Eger kapı yukarıdaki spesifik kurallarla atanmadıysa, test amaçlı sabit/deterministik ata
   if (gate === null) {
-    const gates = [null, 'A1', 'B12', 'C4', 'D7', 'E2', 'F15', 'G3'];
-    const randomIndex = Math.floor(Math.random() * gates.length);
+    const gates = ['A1', 'B12', 'C4', 'D7', 'E2', 'F15', 'G3', 'H5', 'J9'];
+    let hash = 0;
+    for (let i = 0; i < code.length; i++) {
+       hash += code.charCodeAt(i);
+    }
+    const randomIndex = hash % gates.length;
     gate = gates[randomIndex];
   }
 
@@ -306,10 +310,9 @@ app.get('/api/flight/:flight_code', async (req, res) => {
     }
   }
 
-  // 3. Alternatif/Geriye Düşüş: Simülasyon Verisi
-  console.log('API sorguları basarısız veya anahtarlar eksik. Simüle veri donuluyor...');
-  const mockFlight = generateSimulatedFlight(flightCode);
-  return res.json(formatFlightResponse(mockFlight));
+  // 3. Alternatif/Geriye Düşüş: Hata veya Bulunamadı
+  console.log(`API sorgulari basarisiz veya veri bulunamadi. Uçuş bulunamadı hatası dönülüyor.`);
+  return res.status(404).json({ error: 'Uçuş bulunamadı veya API canlı verilerine ulaşılamadı.' });
 });
 
 // Aviationstack ham verisini frontend'in istedigi temiz formata dondurur
