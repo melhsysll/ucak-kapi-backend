@@ -315,6 +315,55 @@ app.get('/api/flight/:flight_code', async (req, res) => {
   return res.status(404).json({ error: 'Uçuş bulunamadı veya API canlı verilerine ulaşılamadı.' });
 });
 
+// Arayüz veya tarayıcı üzerinden canlı API durumunu kontrol etmek için hata denetim endpoint'i
+app.get('/api/debug-flight/:flight_code', async (req, res) => {
+  const flightCode = req.params.flight_code.toUpperCase().replace(/\s+/g, '');
+  const magicApiKey = process.env.MAGICAPI_KEY;
+  
+  const today = new Date();
+  const localTime = new Date(today.getTime() + 3 * 60 * 60 * 1000);
+  const dateStr = localTime.toISOString().split('T')[0];
+
+  const debugInfo = {
+    searchedFlightCode: flightCode,
+    dateUsed: dateStr,
+    hasApiKey: !!magicApiKey,
+    apiKeySnippet: magicApiKey ? `${magicApiKey.substring(0, 4)}...${magicApiKey.slice(-4)}` : 'Yok',
+    apiUrl: `https://prod.api.market/api/v1/aedbx/aerodatabox/flights/number/${flightCode}/${dateStr}`
+  };
+
+  if (!magicApiKey) {
+    return res.status(400).json({ error: 'MAGICAPI_KEY is not defined in backend .env', debugInfo });
+  }
+
+  try {
+    const response = await axios.get(debugInfo.apiUrl, {
+      params: { dateLocalRole: 'Both' },
+      headers: {
+        'x-magicapi-key': magicApiKey,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
+
+    return res.json({
+      status: 'API sorgusu basarili',
+      statusCode: response.status,
+      dataLength: response.data?.length,
+      rawData: response.data,
+      debugInfo
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'API sorgusu basarisiz',
+      errorMessage: error.message,
+      errorResponseStatus: error.response?.status,
+      errorResponseData: error.response?.data,
+      debugInfo
+    });
+  }
+});
+
 // Aviationstack ham verisini frontend'in istedigi temiz formata dondurur
 const formatFlightResponse = (flight) => {
   const dep = flight.departure || {};
