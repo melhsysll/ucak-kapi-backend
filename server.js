@@ -202,6 +202,45 @@ const generateSimulatedFlight = (flightCode) => {
   };
 };
 
+// API.market / AeroDataBox ham verisini frontend'in istedigi temiz formata dondurur
+const formatAeroDataBoxResponse = (flight, flightCode = 'Bilinmiyor') => {
+  const dep = flight.departure || {};
+  const arr = flight.arrival || {};
+  const depAirport = dep.airport || {};
+  const arrAirport = arr.airport || {};
+
+  // Kapı numarası yoksa "Henüz Açıklanmadı" dönülecektir
+  const gateVal = dep.gate ? dep.gate.trim() : null;
+  const gateDisplay = gateVal ? gateVal : 'Henüz Açıklanmadı';
+
+  // Durum
+  const statusRaw = flight.status || 'scheduled';
+  let statusText = 'Zamanında';
+  if (statusRaw.toLowerCase() === 'cancelled') {
+    statusText = 'İptal Edildi';
+  } else if (statusRaw.toLowerCase() === 'active' || statusRaw.toLowerCase() === 'enroute') {
+    statusText = 'Havada / Aktif';
+  }
+
+  return {
+    flightCode: flight.identification?.number || flightCode,
+    airline: flight.airline?.name || 'Bilinmeyen Havayolu',
+    airport: depAirport.name || 'Bilinmeyen Havalimanı',
+    terminal: dep.terminal || '1',
+    gate: gateDisplay,
+    scheduledTime: dep.scheduledTimeLocal || new Date().toISOString(),
+    estimatedTime: dep.actualTimeLocal || dep.scheduledTimeLocal || new Date().toISOString(),
+    delayMinutes: 0,
+    flightStatus: statusText,
+    isDelayed: false,
+    rawStatus: statusRaw,
+    originIata: depAirport.iata || 'IST',
+    originAirport: depAirport.name || 'İstanbul Havalimanı (IST)',
+    destinationIata: arrAirport.iata || 'LHR',
+    destinationAirport: arrAirport.name || 'London Heathrow Airport (LHR)'
+  };
+};
+
 /* ==========================================
    REST ENDPOINT'LERI
    ========================================== */
@@ -209,45 +248,68 @@ const generateSimulatedFlight = (flightCode) => {
 // 1. Ucus Koduna Gore Sorgulama Endpoint'i
 app.get('/api/flight/:flight_code', async (req, res) => {
   const flightCode = req.params.flight_code.toUpperCase().replace(/\s+/g, '');
+  const magicApiKey = process.env.MAGICAPI_KEY;
   const apiKey = process.env.AVIATIONSTACK_API_KEY;
 
   console.log(`Ucus sorgulaniyor: ${flightCode}`);
 
-  if (!apiKey || apiKey.trim() === '' || apiKey.trim() === 'YOUR_REAL_API_KEY_HERE') {
-    console.log('Aviationstack API_KEY bulunamadi veya gecersiz. Simule veri donuluyor...');
-    const mockFlight = generateSimulatedFlight(flightCode);
-    return res.json(formatFlightResponse(mockFlight));
-  }
+  // 1. Alternatif: API.market AeroDataBox API Sorgusu
+  if (magicApiKey && magicApiKey.trim() !== '' && magicApiKey.trim() !== 'YOUR_REAL_API_KEY_HERE') {
+    try {
+      console.log(`API Market (AeroDataBox) kullanilarak ucus sorgulaniyor: ${flightCode}`);
+      const today = new Date();
+      // Türkiye saat dilimine göre (UTC+3) yerel güncel tarihi alalım
+      const localTime = new Date(today.getTime() + 3 * 60 * 60 * 1000);
+      const dateStr = localTime.toISOString().split('T')[0];
 
-  try {
-    const response = await axios.get('http://api.aviationstack.com/v1/flights', {
-      params: {
-        access_key: apiKey,
-        flight_iata: flightCode
-      },
-      timeout: 8000 // 8 saniye zaman asimi
-    });
+      const response = await axios.get(`https://prod.api.market/api/v1/aedbx/aerodatabox/flights/number/${flightCode}/${dateStr}`, {
+        params: {
+          dateLocalRole: 'Both'
+        },
+        headers: {
+          'x-magicapi-key': magicApiKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 9000
+      });
 
-    const body = response.data;
-
-    // Veri bulunamadiysa veya API hata dondurduyse simule veriye geri dus
-    if (!body || !body.data || body.data.length === 0) {
-      console.warn(`Aviationstack API'de '${flightCode}' kodlu ucus bulunamadi. Demo icin simule veri saglaniyor.`);
-      const mockFlight = generateSimulatedFlight(flightCode);
-      return res.json(formatFlightResponse(mockFlight));
+      const body = response.data;
+      if (body && Array.isArray(body) && body.length > 0) {
+        console.log(`API Market verisi basariyla alindi: ${flightCode}`);
+        return res.json(formatAeroDataBoxResponse(body[0], flightCode));
+      } else {
+        console.warn(`API Market'te '${flightCode}' bu tarih icin bulunamadı: ${dateStr}. Diğer alternatif veya simülasyona geçiliyor.`);
+      }
+    } catch (error) {
+      console.error('API Market (AeroDataBox) sorgusu basarisiz oldu:', error.message);
     }
-
-    // Ilk eslesen aktif veya planlanmis ucusu aliyoruz
-    const flightData = body.data[0];
-    return res.json(formatFlightResponse(flightData));
-
-  } catch (error) {
-    console.error('Aviationstack API entegrasyon hatasi:', error.message);
-    console.log('Sunucu hatasi alindi, simule veri ile devam ediliyor...');
-    // API Hatasinda da sistemin cokmemesi ve uygulamanin incelenebilmesi icin mock donduruyoruz.
-    const mockFlight = generateSimulatedFlight(flightCode);
-    return res.json(formatFlightResponse(mockFlight));
   }
+
+  // 2. Alternatif: Aviationstack API Sorgusu
+  if (apiKey && apiKey.trim() !== '' && apiKey.trim() !== 'YOUR_REAL_API_KEY_HERE') {
+    try {
+      console.log(`Aviationstack kullanilarak ucus sorgulaniyor: ${flightCode}`);
+      const response = await axios.get('http://api.aviationstack.com/v1/flights', {
+        params: {
+          access_key: apiKey,
+          flight_iata: flightCode
+        },
+        timeout: 8000
+      });
+
+      const body = response.data;
+      if (body && body.data && body.data.length > 0) {
+        return res.json(formatFlightResponse(body[0]));
+      }
+    } catch (error) {
+      console.error('Aviationstack API sorgusu basarisiz oldu:', error.message);
+    }
+  }
+
+  // 3. Alternatif/Geriye Düşüş: Simülasyon Verisi
+  console.log('API sorguları basarısız veya anahtarlar eksik. Simüle veri donuluyor...');
+  const mockFlight = generateSimulatedFlight(flightCode);
+  return res.json(formatFlightResponse(mockFlight));
 });
 
 // Aviationstack ham verisini frontend'in istedigi temiz formata dondurur
@@ -353,9 +415,14 @@ app.get('/api/tracked-flights', async (req, res) => {
 
 // Takip edilen gerçek uçuşları belirli aralıklarla API'den sorgulayan fonksiyon
 const checkTrackedFlightsForUpdates = async () => {
+  const magicApiKey = process.env.MAGICAPI_KEY;
   const apiKey = process.env.AVIATIONSTACK_API_KEY;
-  if (!apiKey || apiKey.trim() === '' || apiKey.trim() === 'YOUR_REAL_API_KEY_HERE') {
-    // API anahtarı girilmemişse arka planda sorgulama yapamayacağımız için sessizce çıkıyoruz
+
+  if (
+    (!magicApiKey || magicApiKey.trim() === '' || magicApiKey.trim() === 'YOUR_REAL_API_KEY_HERE') &&
+    (!apiKey || apiKey.trim() === '' || apiKey.trim() === 'YOUR_REAL_API_KEY_HERE')
+  ) {
+    // API anahtarları girilmemişse arka planda sorgulama yapamayacağımız için sessizce çıkıyoruz
     return;
   }
 
@@ -376,40 +443,65 @@ const checkTrackedFlightsForUpdates = async () => {
   for (const flight of trackedList) {
     try {
       console.log(`FIDS Poller: ${flight.flightCode} sorgulanıyor...`);
-      const response = await axios.get('http://api.aviationstack.com/v1/flights', {
-        params: {
-          access_key: apiKey,
-          flight_iata: flight.flightCode
-        },
-        timeout: 6050
-      });
+      let newGate = null;
 
-      const body = response.data;
-      if (body && body.data && body.data.length > 0) {
-        const liveFlight = body.data[0];
-        const formatted = formatFlightResponse(liveFlight);
-        const newGate = formatted.gate;
+      // 1. Alternatif: API.market (AeroDataBox) Polling
+      if (magicApiKey && magicApiKey.trim() !== '' && magicApiKey.trim() !== 'YOUR_REAL_API_KEY_HERE') {
+        const today = new Date();
+        const localTime = new Date(today.getTime() + 3 * 60 * 60 * 1000);
+        const dateStr = localTime.toISOString().split('T')[0];
 
-        // Gerçek kapıda değişim algılanırsa
-        if (newGate && newGate !== 'Henüz Açıklanmadı' && newGate !== flight.gate) {
-          console.log(`🚨 GERÇEK KAPI DEĞİŞİMİ: ${flight.flightCode} kapısı güncellendi! Eski: ${flight.gate} ➔ Yeni: ${newGate}`);
+        const response = await axios.get(`https://prod.api.market/api/v1/aedbx/aerodatabox/flights/number/${flight.flightCode}/${dateStr}`, {
+          params: { dateLocalRole: 'Both' },
+          headers: {
+            'x-magicapi-key': magicApiKey,
+            'Content-Type': 'application/json'
+          },
+          timeout: 6050
+        });
 
-          // Veritabanını / hafızayı güncelle
-          if (isMongoConnected) {
-            await TrackedFlight.findOneAndUpdate({ flightCode: flight.flightCode }, { gate: newGate });
-          } else {
-            const idx = inMemoryTrackedFlights.findIndex(f => f.flightCode === flight.flightCode);
-            if (idx > -1) inMemoryTrackedFlights[idx].gate = newGate;
-          }
-
-          // WebSocket ile tüm bağlı istemcilere gerçek kapı değişimi bildirimini fırlat
-          io.emit('gate_update', {
-            flightCode: flight.flightCode,
-            oldGate: flight.gate,
-            newGate: newGate,
-            message: `Uçuş Kapı Uyarısı: ${flight.flightCode} uçuşunun kapı numarası değişti! (Eski Kapı: ${flight.gate} ➔ Yeni Kapı: ${newGate})`
-          });
+        const body = response.data;
+        if (body && Array.isArray(body) && body.length > 0) {
+          const formatted = formatAeroDataBoxResponse(body[0], flight.flightCode);
+          newGate = formatted.gate;
         }
+      } 
+      // 2. Alternatif: Aviationstack Polling
+      else if (apiKey && apiKey.trim() !== '' && apiKey.trim() !== 'YOUR_REAL_API_KEY_HERE') {
+        const response = await axios.get('http://api.aviationstack.com/v1/flights', {
+          params: {
+            access_key: apiKey,
+            flight_iata: flight.flightCode
+          },
+          timeout: 6050
+        });
+
+        const body = response.data;
+        if (body && body.data && body.data.length > 0) {
+          const formatted = formatFlightResponse(body[0]);
+          newGate = formatted.gate;
+        }
+      }
+
+      // Gerçek kapıda değişim algılanırsa
+      if (newGate && newGate !== 'Henüz Açıklanmadı' && newGate !== flight.gate) {
+        console.log(`🚨 GERÇEK KAPI DEĞİŞİMİ: ${flight.flightCode} kapısı güncellendi! Eski: ${flight.gate} ➔ Yeni: ${newGate}`);
+
+        // Veritabanını / hafızayı güncelle
+        if (isMongoConnected) {
+          await TrackedFlight.findOneAndUpdate({ flightCode: flight.flightCode }, { gate: newGate });
+        } else {
+          const idx = inMemoryTrackedFlights.findIndex(f => f.flightCode === flight.flightCode);
+          if (idx > -1) inMemoryTrackedFlights[idx].gate = newGate;
+        }
+
+        // WebSocket ile tüm bağlı istemcilere gerçek kapı değişimi bildirimini fırlat
+        io.emit('gate_update', {
+          flightCode: flight.flightCode,
+          oldGate: flight.gate,
+          newGate: newGate,
+          message: `Uçuş Kapı Uyarısı: ${flight.flightCode} uçuşunun kapı numarası değişti! (Eski Kapı: ${flight.gate} ➔ Yeni Kapı: ${newGate})`
+        });
       }
     } catch (err) {
       console.warn(`${flight.flightCode} gerçek kapı kontrol sorgulaması başarısız:`, err.message);
