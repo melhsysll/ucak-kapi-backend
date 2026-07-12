@@ -48,63 +48,125 @@ const generateSimulatedFlight = (flightCode) => {
 
   // Havayolu belirleme ve havalimanı eşleme
   let airline = 'Diğer Havayolu';
-  let airport = 'İstanbul Havalimanı (IST)';
-  let iata = 'IST';
+  let depAirport = 'İstanbul Havalimanı (IST)';
+  let depIata = 'IST';
+  let arrAirport = 'London Heathrow Airport (LHR)';
+  let arrIata = 'LHR';
+  let gate = null;
+  let terminal = '1';
 
-  if (code.includes('ESB') || code === 'TK2124') {
+  // Check specific test cases from Istanbul Airport live screen:
+  if (code === '3O0523' || code === '3O523') {
+    airline = 'Air Arabia Morocco';
+    depAirport = 'İstanbul Havalimanı (IST)';
+    depIata = 'IST';
+    arrAirport = 'Rabat Salé Airport (RBA)';
+    arrIata = 'RBA';
+    gate = 'B1A';
+    terminal = '1';
+  } else if (code === 'TK0111' || code === 'TK111') {
     airline = 'Turkish Airlines';
-    airport = 'Ankara Esenboğa Havalimanı (ESB)';
-    iata = 'ESB';
+    depAirport = 'İstanbul Havalimanı (IST)';
+    depIata = 'IST';
+    arrAirport = 'John F. Kennedy International Airport (JFK)';
+    arrIata = 'JFK';
+    gate = 'A8B';
+    terminal = '1';
+  } else if (code === 'TK0262' || code === 'TK262') {
+    airline = 'Turkish Airlines';
+    depAirport = 'İstanbul Havalimanı (IST)';
+    depIata = 'IST';
+    arrAirport = 'Urgench International Airport (UGC)';
+    arrIata = 'UGC';
+    gate = 'D15';
+    terminal = '1';
+  } else if (code.includes('ESB') || code === 'TK2124') {
+    airline = 'Turkish Airlines';
+    depAirport = 'Ankara Esenboğa Havalimanı (ESB)';
+    depIata = 'ESB';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'A1';
   } else if (code.includes('AYT') || code === 'TK100') {
     airline = 'Turkish Airlines';
-    airport = 'Antalya Havalimanı (AYT)';
-    iata = 'AYT';
+    depAirport = 'Antalya Havalimanı (AYT)';
+    depIata = 'AYT';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'B12';
   } else if (code.includes('ADB') || code === 'TK200') {
     airline = 'Turkish Airlines';
-    airport = 'İzmir Adnan Menderes Havalimanı (ADB)';
-    iata = 'ADB';
+    depAirport = 'İzmir Adnan Menderes Havalimanı (ADB)';
+    depIata = 'ADB';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'C4';
   } else if (code.includes('JFK') || code === 'AA100') {
     airline = 'American Airlines';
-    airport = 'John F. Kennedy International Airport (JFK)';
-    iata = 'JFK';
+    depAirport = 'John F. Kennedy International Airport (JFK)';
+    depIata = 'JFK';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'D7';
   } else if (code.includes('CDG') || code === 'AF200') {
     airline = 'Air France';
-    airport = 'Charles de Gaulle Airport (CDG)';
-    iata = 'CDG';
+    depAirport = 'Charles de Gaulle Airport (CDG)';
+    depIata = 'CDG';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'E2';
   } else if (code.includes('DXB') || code === 'EK300') {
     airline = 'Emirates';
-    airport = 'Dubai International Airport (DXB)';
-    iata = 'DXB';
+    depAirport = 'Dubai International Airport (DXB)';
+    depIata = 'DXB';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'F15';
   } else if (code === 'TK1592') {
     airline = 'Turkish Airlines';
-    airport = 'Munich Airport (MUC)'; // Desteklenmiyor
-    iata = 'MUC';
+    depAirport = 'Munich Airport (MUC)';
+    depIata = 'MUC';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
+    gate = 'G3';
   } else if (prefix === 'TK') {
     airline = 'Turkish Airlines';
-    airport = 'İstanbul Havalimanı (IST)';
-    iata = 'IST';
+    depAirport = 'İstanbul Havalimanı (IST)';
+    depIata = 'IST';
+    arrAirport = 'London Heathrow Airport (LHR)';
+    arrIata = 'LHR';
   } else if (prefix === 'PC' || prefix === 'PGS') {
     airline = 'Pegasus Airlines';
-    airport = 'Sabiha Gökçen Havalimanı (SAW)';
-    iata = 'SAW';
+    depAirport = 'Sabiha Gökçen Havalimanı (SAW)';
+    depIata = 'SAW';
+    arrAirport = 'Paris Orly Airport (ORY)';
+    arrIata = 'ORY';
   } else if (prefix === 'LH') {
     airline = 'Lufthansa';
-    airport = 'Frankfurt Airport (FRA)';
-    iata = 'FRA';
+    depAirport = 'Frankfurt Airport (FRA)';
+    depIata = 'FRA';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
   } else if (prefix === 'BA') {
     airline = 'British Airways';
-    airport = 'London Heathrow Airport (LHR)';
-    iata = 'LHR';
+    depAirport = 'London Heathrow Airport (LHR)';
+    depIata = 'LHR';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
   } else {
     airline = 'Diğer Havayolu';
-    airport = 'Munich Airport (MUC)';
-    iata = 'MUC';
+    depAirport = 'Munich Airport (MUC)';
+    depIata = 'MUC';
+    arrAirport = 'İstanbul Havalimanı (IST)';
+    arrIata = 'IST';
   }
 
-  // Bazi ucuslarin kapisi ilk basta bos gelsin (null) test yapilabilmesi icin
-  const gates = [null, 'A1', 'B12', 'C4', 'D7', 'E2', 'F15', 'G3'];
-  const randomIndex = Math.floor(Math.random() * gates.length);
-  const gate = gates[randomIndex];
+  // Eger kapı yukarıdaki spesifik kurallarla atanmadıysa, test amaçlı rastgele ata
+  if (gate === null) {
+    const gates = [null, 'A1', 'B12', 'C4', 'D7', 'E2', 'F15', 'G3'];
+    const randomIndex = Math.floor(Math.random() * gates.length);
+    gate = gates[randomIndex];
+  }
 
   const now = new Date();
   const scheduledTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 saat sonra
@@ -113,14 +175,22 @@ const generateSimulatedFlight = (flightCode) => {
     flight_date: now.toISOString().split('T')[0],
     flight_status: Math.random() > 0.15 ? 'active' : 'scheduled',
     departure: {
-      airport: airport,
+      airport: depAirport,
       timezone: 'Europe/Istanbul',
-      iata: iata,
-      terminal: Math.random() > 0.5 ? '1' : '2',
+      iata: depIata,
+      terminal: terminal,
       gate: gate,
-      delay: Math.random() > 0.7 ? Math.floor(Math.random() * 60) + 15 : 0, // %30 ihtimalle gecikme
+      delay: Math.random() > 0.7 ? Math.floor(Math.random() * 60) + 15 : 0,
       scheduled: scheduledTime.toISOString(),
       estimated: new Date(scheduledTime.getTime() + 15 * 60 * 1000).toISOString()
+    },
+    arrival: {
+      airport: arrAirport,
+      timezone: 'Europe/Paris',
+      iata: arrIata,
+      gate: null,
+      scheduled: scheduledTime.toISOString(),
+      estimated: scheduledTime.toISOString()
     },
     airline: {
       name: airline
@@ -183,6 +253,7 @@ app.get('/api/flight/:flight_code', async (req, res) => {
 // Aviationstack ham verisini frontend'in istedigi temiz formata dondurur
 const formatFlightResponse = (flight) => {
   const dep = flight.departure || {};
+  const arr = flight.arrival || {};
   const statusRaw = flight.flight_status || 'scheduled';
   
   // Kapı numarası yoksa "Henüz Açıklanmadı" dönülecektir
@@ -211,7 +282,11 @@ const formatFlightResponse = (flight) => {
     delayMinutes: delay,
     flightStatus: statusText,
     isDelayed: delay > 0,
-    rawStatus: statusRaw
+    rawStatus: statusRaw,
+    originIata: dep.iata || 'IST',
+    originAirport: dep.airport || 'İstanbul Havalimanı (IST)',
+    destinationIata: arr.iata || 'LHR',
+    destinationAirport: arr.airport || 'London Heathrow Airport (LHR)'
   };
 };
 
