@@ -206,6 +206,37 @@ const generateSimulatedFlight = (flightCode) => {
   };
 };
 
+
+// AeroDataBox'tan donen ucuslar dizisinden su anki zamana en yakin olanini secer
+const selectClosestFlight = (flights) => {
+  if (!Array.isArray(flights) || flights.length === 0) return null;
+  if (flights.length === 1) return flights[0];
+
+  const now = new Date();
+  let closestFlight = flights[0];
+  let minDiff = Infinity;
+
+  for (const flight of flights) {
+    const depTimeStr = flight.departure?.scheduledTime?.local || flight.departure?.scheduledTimeLocal;
+    const arrTimeStr = flight.arrival?.scheduledTime?.local || flight.arrival?.scheduledTimeLocal;
+    const timeStr = depTimeStr || arrTimeStr;
+    
+    if (timeStr) {
+      // Bosluk veya formati ISO olarak guvenli sekilde parse et
+      const normalizedTimeStr = timeStr.replace(' ', 'T');
+      const flightTime = new Date(normalizedTimeStr);
+      const diff = Math.abs(now.getTime() - flightTime.getTime());
+      
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestFlight = flight;
+      }
+    }
+  }
+
+  return closestFlight;
+};
+
 // API.market / AeroDataBox ham verisini frontend'in istedigi temiz formata dondurur
 const formatAeroDataBoxResponse = (flight, flightCode = 'Bilinmiyor') => {
   const dep = flight.departure || {};
@@ -279,8 +310,9 @@ app.get('/api/flight/:flight_code', async (req, res) => {
 
       const body = response.data;
       if (body && Array.isArray(body) && body.length > 0) {
-        console.log(`API Market verisi basariyla alindi: ${flightCode}`);
-        return res.json(formatAeroDataBoxResponse(body[0], flightCode));
+        console.log(`API Market verisi basariyla alindi: ${flightCode}. En yakin aktif sefer seciliyor...`);
+        const closest = selectClosestFlight(body);
+        return res.json(formatAeroDataBoxResponse(closest, flightCode));
       } else {
         console.warn(`API Market'te '${flightCode}' bu tarih icin bulunamadı: ${dateStr}. Diğer alternatif veya simülasyona geçiliyor.`);
       }
@@ -514,7 +546,8 @@ const checkTrackedFlightsForUpdates = async () => {
 
         const body = response.data;
         if (body && Array.isArray(body) && body.length > 0) {
-          const formatted = formatAeroDataBoxResponse(body[0], flight.flightCode);
+          const closest = selectClosestFlight(body);
+          const formatted = formatAeroDataBoxResponse(closest, flight.flightCode);
           newGate = formatted.gate;
         }
       } 
